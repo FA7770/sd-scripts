@@ -240,6 +240,13 @@ def add_sd3_training_arguments(parser: argparse.ArgumentParser):
         default=1.0,
         help="Discrete flow shift for training timestep distribution adjustment, applied in addition to the weighting scheme, default is 1.0. /タイムステップ分布のための離散フローシフト、重み付けスキームの上に適用される、デフォルトは1.0。",
     )
+        
+    parser.add_argument(
+        "--sampling_shift",
+        type=float,
+        default=3.0,
+        help="Discrete flow shift for sampling timestep distribution adjustment, default is 3.0. /サンプル生成時の離散フローシフト、デフォルトは3.0。",
+    )
 
 
 def verify_sdxl_training_args(args: argparse.Namespace, supportTextEncoderCaching: bool = True):
@@ -308,6 +315,7 @@ def do_sample(
     guidance_scale: float,
     dtype: torch.dtype,
     device: str,
+    args: argparse.Namespace,
 ):
     latent = torch.zeros(1, 16, height // 8, width // 8, device=device)
     latent = latent.to(dtype).to(device)
@@ -323,7 +331,7 @@ def do_sample(
         .to(device)
     )
 
-    model_sampling = sd3_utils.ModelSamplingDiscreteFlow(shift=3.0)  # 3.0 is for SD3
+    model_sampling = sd3_utils.ModelSamplingDiscreteFlow(args.sampling_shift) 
 
     sigmas = get_all_sigmas(model_sampling, steps).to(device)
 
@@ -558,7 +566,7 @@ def sample_image_inference(
     clean_memory_on_device(accelerator.device)
     with accelerator.autocast(), torch.no_grad():
         # mmdit may be fp8, so we need weight_dtype here. vae is always in that dtype.
-        latents = do_sample(height, width, seed, cond, neg_cond, mmdit, sample_steps, scale, vae.dtype, accelerator.device)
+        latents = do_sample(height, width, seed, cond, neg_cond, mmdit, sample_steps, scale, vae.dtype, accelerator.device, args))
 
     # latent to image
     clean_memory_on_device(accelerator.device)
